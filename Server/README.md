@@ -5,6 +5,12 @@ Establish a data collection process, including collection times, collection time
 
 ![GUI](gui.jpg)
 
+## Prerequisite
+### Download related package
+```shell!
+$ pip install -r requirements.txt
+```
+
 ## Start socket server
 ### Set NIC ID, bandwidth and channel
 > array_prepare_for_picoscenes `NIC ID` "`primary channel` `bandwidth` `center channel`"
