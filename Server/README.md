@@ -5,7 +5,14 @@ Establish a data collection process, including collection times, collection time
 
 ![GUI](gui.jpg)
 
-## Execute collection server
+## Start socket server
+### Set NIC ID, bandwidth and channel
+> array_prepare_for_picoscenes `NIC ID` "`primary channel` `bandwidth` `center channel`"
+```shell!
+$ array_prepare_for_picoscenes 6 "6275 160 6345"
+```
+
+### Execute collection server
 ```shell!
 $ python3 gui_function.py
 ```
@@ -17,7 +24,7 @@ $ python3 gui_function.py
 5. set collect period
 6. set break period
 
-## Start collect
+### Start collect
 press the `Start!` button, then the server will send a message to all client to start collecting.
 
 After the collecting time which you have already set, server will send a message again to stop the collecting.
