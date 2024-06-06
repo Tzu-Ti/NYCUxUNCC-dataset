@@ -21,43 +21,38 @@ class DepthCameraProcessor:
         self.device = None
         self.event = threading.Event()
         self.save_queue = Queue()
-        self.folder_path = None  # Initialize folder path
+        self.folder_path = None
 
     def create_directory_if_not_exists(self, directory):
         if not os.path.exists(directory):
             os.makedirs(directory)
 
     def save_color_image(self, color_image):
-        timestamp = int(time.time() * 1000)  # Convert current time to milliseconds
+        timestamp = int(time.time() * 1000)
         filename = os.path.join(self.save_rgb_dir, f"{timestamp}.jpg")
         cv2.imwrite(filename, color_image)
-        # print(f"Color image saved at {filename}")
 
     def process_depth_data(self, depth_frame):
         if depth_frame is None:
-            return None  # Return None for depth_data
+            return None
 
         width = depth_frame.get_width()
         height = depth_frame.get_height()
         scale = depth_frame.get_depth_scale()
-        # print(width, height, scale)
 
         depth_data = np.frombuffer(depth_frame.get_data(), dtype=np.uint16)
         depth_data = depth_data.reshape((height, width))
         depth_data = depth_data.astype(np.float32) * scale
         depth_data = depth_data.astype(np.uint16)
         
-        return depth_data  # Return depth_data
+        return depth_data 
 
     def save_depth_frame(self, depth_data):
-        timestamp = int(time.time() * 1000)  # Convert current time to milliseconds
+        timestamp = int(time.time() * 1000)  
         filename = os.path.join(self.save_depth_dir, f"{timestamp}")
         depth_data = depth_data.astype(np.uint16)
         start = time.time()
         np.save(filename, depth_data)
-        # depth_data.tofile(raw_filename)
-        # print("saving time:", time.time()-start)
-        # print(f"Depth data saved at {raw_filename}")
 
     def configure_pipeline(self):
         try:
@@ -84,16 +79,6 @@ class DepthCameraProcessor:
                                                         depth_profile.get_fps(),
                                                         depth_profile.get_format()))
             config.enable_stream(depth_profile)
-
-            # if self.align_mode == 'HW':
-            #     if device_pid == 0x066B:
-            #         config.set_align_mode(OBAlignMode.SW_MODE)
-            #     else:
-            #         config.set_align_mode(OBAlignMode.HW_MODE)
-            # elif self.align_mode == 'SW':
-            #     config.set_align_mode(OBAlignMode.SW_MODE)
-            # else:
-            #     config.set_align_mode(OBAlignMode.DISABLE)
 
             if self.enable_sync:
                 self.pipeline.enable_frame_sync()
