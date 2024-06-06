@@ -19,7 +19,7 @@ $ python3 gui_function.py
 
 1. set csi collection client to Rx
 2. set channel string, we choose `65 "6275_160_6345"`
-3. set collector name
+3. set collector name, which is data saving path
 4. set collect times
 5. set collect period
 6. set break period
