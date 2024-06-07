@@ -28,8 +28,7 @@ $ cmake -Dpybind11_DIR=`pybind11-config --cmakedir` ..
 $ make -j4
 $ make install
 ```
-### Move the built package to virtual environment package folder
-
+### Move the built package to virtual environment package folder or set up your environment
 ### Try the Examples
 ```shell!
 $ cd pyorbbecsdk
