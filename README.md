@@ -11,3 +11,5 @@ Our collection process is to create a socket server, and multiple sensors are di
 ### Depth
 ![depth](images/depth.png)
 
+### CSI
+<img src="images/csi.jpg"/>
