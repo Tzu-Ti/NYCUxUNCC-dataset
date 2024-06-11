@@ -12,4 +12,6 @@ Our collection process is to create a socket server, and multiple sensors are di
 ![depth](images/depth.png)
 
 ### CSI
+Right curve is the amplitude and phase of left image.
+
 <img src="images/csi.jpg"/>
