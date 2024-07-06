@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Folder to Video with Annotations and Interval Marking</title>
+    <style>
+        #image-container {
+            width: 80%;
+            margin: auto;
+            text-align: center;
+        }
+        #image {
+            width: 100%;
+            height: auto;
+        }
+        #controls {
+            text-align: center;
+            margin: 20px;
+        }
+        #annotations {
+            text-align: center;
+            margin-top: 20px;
+        }
+        #annotation-list {
+            list-style: none;
+            padding: 0;
+        }
+        #file-input {
+            display: block;
+            margin: 20px auto;
+        }
+        .action-label {
+            display: inline-block;
+            width: 120px;
+            text-align: right;
+            margin-right: 10px;
+        }
+        #video-controls {
+            margin-top: 10px;
+        }
+        .annotation-visualization {
+            margin-top: 20px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            height: 20px; /* Adjust height for the bar */
+        }
+        .annotation-bar {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 5px; /* Height of the bar */
+            background-color: #000; /* Black color */
+            transform: translateY(-50%);
+            z-index: 1; /* Ensure it's above annotations */
+        }
+        .annotation-box {
+            margin: 5px;
+            padding: 5px;
+            border: 1px solid #333;
+            display: inline-block;
+            height: 10px; /* Adjust height as needed */
+            position: absolute;
+        }
+        .selection-box {
+            position: absolute;
+            height: 10px; /* Adjust height as needed */
+            background-color: rgba(0, 0, 255, 0.5); /* Transparent blue color */
+            z-index: 2; /* Above the annotation bar */
+        }
+        .range-slider {
+            width: 100%;
+            margin: 20px auto;
+        }
+        .range-slider input {
+            width: 100%;
+        }
+        .annotation-color {
+            position: absolute;
+            height: 5px;
+            background-color: rgba(0, 0, 255, 0.5);
+            z-index: 1;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+    </style>
+</head>
+<body>
+    <input type="file" id="file-input" webkitdirectory multiple accept=".jpg, .jpeg, .png">
+    <div id="image-container">
+        <img id="image" src="" alt="Image will be displayed here">
+    </div>
+    <div id="controls">
+        <button onclick="prevImage()">Previous</button>
+        <button onclick="nextImage()">Next</button>
+        <div id="video-controls">
+            <button onclick="togglePlayPause()">Play/Pause (Space)</button>
+            <input type="range" id="video-slider" min="0" value="0">
+        </div>
+        <select id="person-selector">
+            <option value="1">Person 1</option>
+            <option value="2">Person 2</option>
+            <option value="3">Person 3</option>
+        </select>
+        <select id="action-selector">
+            <option value="">Select action</option>
+            <option value="1">Nothing</option>
+            <option value="2">Rotating</option>
+            <option value="3">Picking up</option>
+            <option value="4">Stretching</option>
+            <option value="5">Squatting down</option>
+            <option value="6">Standing up</option>
+            <option value="7">Walking</option>
+            <option value="8">Jumping</option>
+            <option value="9">Waving</option>
+        </select>
+        <button onclick="annotateRange()">Annotate Range</button>
+        <button onclick="exportAnnotations()">Export Annotations</button>
+    </div>
+    <div id="annotations">
+        <div class="annotation-visualization" id="annotation-visualization">
+            <div class="annotation-bar"></div>
+        </div>
+        <div class="range-slider">
+            <input type="range" id="start-slider" min="0" value="0">
+            <input type="range" id="end-slider" min="0" value="0">
+            <div class="annotation-color" id="annotation-color"></div>
+        </div>
+        <ul id="annotation-list"></ul>
+    </div>
+
+    <script>
+        let images = [];
+        let imageFiles = [];
+        let currentIndex = 0;
+        let intervalId = null;
+        const annotations = {};
+        const actions = [
+            'Nothing', 'Rotating', 'Picking up', 'Stretching',
+            'Squatting down', 'Standing up', 'Walking', 'Jumping', 'Waving'
+        ];
+        const actionColors = [
+            '#ff0000', // Red for Nothing
+            '#00ff00', // Green for Rotating
+            '#0000ff', // Blue for Picking up
+            '#ffff00', // Yellow for Stretching
+            '#ff00ff', // Magenta for Squatting down
+            '#00ffff', // Cyan for Standing up
+            '#ffa500', // Orange for Walking
+            '#800080', // Purple for Jumping
+            '#008000'  // Dark Green for Waving
+        ];
+        let folderName = '';
+
+        document.getElementById('file-input').addEventListener('change', function(event) {
+            const files = Array.from(event.target.files);
+            files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })); // Sort files numerically by name
+            images = files.map(file => URL.createObjectURL(file));
+            imageFiles = files;
+            folderName = files[0].webkitRelativePath.split('/')[0]; // Get the folder name
+            if (images.length > 0) {
+                currentIndex = 0;
+                loadImage(currentIndex);
+                updateSliderMax(images.length - 1);
+                initializeAnnotation(); // Initialize annotations
+            }
+        });
+
+        function loadImage(index) {
+            if (index >= 0 && index < images.length) {
+                const img = document.getElementById('image');
+                img.src = images[index];
+                currentIndex = index;
+                updateAnnotationVisualization(); // Update visualization
+                updateAnnotationList(); // Update annotations when image changes
+                document.getElementById('video-slider').value = currentIndex;
+            }
+        }
+
+        function updateSliderMax(maxValue) {
+            const slider = document.getElementById('video-slider');
+            slider.max = maxValue;
+            document.getElementById('start-slider').max = maxValue;
+            document.getElementById('end-slider').max = maxValue;
+        }
+
+        function prevImage() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                loadImage(currentIndex);
+            }
+        }
+
+        function nextImage() {
+            if (currentIndex < images.length - 1) {
+                currentIndex++;
+                loadImage(currentIndex);
+            }
+        }
+
+        function togglePlayPause() {
+            const videoSlider = document.getElementById('video-slider');
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+                document.getElementById('end-slider').value = currentIndex;
+            } else {
+                intervalId = setInterval(() => {
+                    nextImage();
+                    videoSlider.value = currentIndex;
+                    if (currentIndex === images.length - 1) {
+                        clearInterval(intervalId);
+                        intervalId = null;
+                    }
+                }, 1000 / 24);
+            }
+        }
+
+        function annotateRange() {
+            const actionId = parseInt(document.getElementById('action-selector').value);
+            const personId = parseInt(document.getElementById('person-selector').value);
+            const startRangeIndex = parseInt(document.getElementById('start-slider').value);
+            const endRangeIndex = parseInt(document.getElementById('end-slider').value);
+            if (actionId && personId && startRangeIndex !== null && endRangeIndex !== null && startRangeIndex <= endRangeIndex) {
+                for (let i = startRangeIndex; i <= endRangeIndex; i++) {
+                    if (!annotations[i]) {
+                        annotations[i] = [];
+                    }
+                    annotations[i] = annotations[i].filter(ann => ann.personId !== personId);
+                    annotations[i].push({
+                        personId: personId,
+                        actionId: actionId,
+                        action: actions[actionId - 1]
+                    });
+                }
+                updateAnnotationVisualization();
+                updateAnnotationList();
+                document.getElementById('start-slider').value = currentIndex; // Sync start-slider with play after annotating
+            }
+        }
+
+        function initializeAnnotation() {
+            updateAnnotationVisualization();
+            updateAnnotationList();
+        }
+
+        function updateAnnotationVisualization() {
+            const visualizationDiv = document.getElementById('annotation-visualization');
+            visualizationDiv.innerHTML = ''; // Clear previous annotations
+
+            Object.keys(annotations).forEach(index => {
+                const annotation = annotations[index];
+                annotation.forEach(ann => {
+                    const actionColor = actionColors[ann.actionId - 1];
+                    const annotationBox = document.createElement('div');
+                    annotationBox.style.backgroundColor = actionColor;
+                    annotationBox.style.left = `${(index / images.length) * 100}%`;
+                    annotationBox.classList.add('annotation-box');
+                    visualizationDiv.appendChild(annotationBox);
+                });
+            });
+
+            const annotationBar = document.createElement('div');
+            annotationBar.className = 'annotation-bar';
+            visualizationDiv.appendChild(annotationBar);
+
+            const selectionBox = document.createElement('div');
+            selectionBox.className = 'selection-box';
+            selectionBox.id = 'selection-box';
+            selectionBox.style.display = 'none';
+            visualizationDiv.appendChild(selectionBox);
+        }
+
+        function updateAnnotationList() {
+            const annotationList = document.getElementById('annotation-list');
+            annotationList.innerHTML = '';
+
+            Object.keys(annotations).forEach(index => {
+                const annotation = annotations[index];
+                annotation.forEach(ann => {
+                    const listItem = document.createElement('li');
+                    // listItem.textContent = `Frame ${index}: Person ${ann.personId}, Action ${ann.action}`;
+                    annotationList.appendChild(listItem);
+                });
+            });
+        }
+
+        function exportAnnotations() {
+            const exportData = {};
+
+            imageFiles.forEach((file, index) => {
+                const imageName = file.name;
+                const annotation = annotations[index];
+                if (annotation) {
+                    exportData[imageName] = annotation.map(ann => ({
+                        personId: ann.personId,
+                        action: ann.action
+                    }));
+                } else {
+                    exportData[imageName] = [];
+                }
+            });
+
+            const json = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([json], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${folderName}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        document.body.onkeyup = function(e) {
+            if (e.keyCode == 32) {
+                togglePlayPause();
+            } else if (e.keyCode >= 48 && e.keyCode <= 57) {
+                const actionId = e.keyCode - 48;
+                const actionSelector = document.getElementById('action-selector');
+                actionSelector.value = actionId;
+                annotateRange();
+            }
+        }
+
+        const videoSlider = document.getElementById('video-slider');
+        videoSlider.addEventListener('input', function() {
+            loadImage(parseInt(this.value));
+        });
+
+        const startSlider = document.getElementById('start-slider');
+        const endSlider = document.getElementById('end-slider');
+        const annotationColor = document.getElementById('annotation-color');
+
+        startSlider.addEventListener('input', function() {
+            loadImage(parseInt(this.value));
+            updateSelectionColor();
+        });
+
+        endSlider.addEventListener('input', function() {
+            loadImage(parseInt(this.value));
+            updateSelectionColor();
+        });
+
+        function updateSelectionColor() {
+            const startValue = parseInt(startSlider.value);
+            const endValue = parseInt(endSlider.value);
+            if (startValue <= endValue) {
+                annotationColor.style.left = `${(startValue / images.length) * 100}%`;
+                annotationColor.style.width = `${((endValue - startValue + 1) / images.length) * 100}%`;
+            }
+        }
+
+        document.getElementById('person-selector').addEventListener('change', function() {
+            loadImage(0); // Start from the first image when changing person
+            currentIndex = 0;
+            document.getElementById('start-slider').value = currentIndex;
+            document.getElementById('end-slider').value = currentIndex;
+        });
+    </script>
+</body>
+</html>
