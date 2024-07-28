@@ -34,8 +34,10 @@ selected_box = None
 selected_box_corner = None
 keypoints = []
 boxes = []
-current_image_index = 0
 images_list = []
+action_history = []
+MAX_HISTORY = 10  # Maximum number of actions to remember
+current_image_index = 0
 folder_path = ''
 json_file_path = ''
 LOW_CONFIDENCE_THRESHOLD = 0.5  # Adjust this value as needed
@@ -51,14 +53,15 @@ def draw_keypoints(image, all_keypoints):
         for pair, color in zip(l_pair, line_color):
             pt1 = (int(keypoints[pair[0] * 3]), int(keypoints[pair[0] * 3 + 1]))
             pt2 = (int(keypoints[pair[1] * 3]), int(keypoints[pair[1] * 3 + 1]))
-#            if keypoints[pair[0] * 3 + 2] > 0.5 and keypoints[pair[1] * 3 + 2] > 0.5:
             cv2.line(image, pt1, pt2, color, 2)
         
         for i in range(0, len(keypoints), 3):
             x, y, confidence = keypoints[i], keypoints[i + 1], keypoints[i + 2]
             if confidence < 0.5:  # only draw keypoints with a high confidence
                 cv2.circle(image, (int(x), int(y)), 5, p_color[i // 3], -1)
+                cv2.putText(image, str(i // 3), (int(x), int(y)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv2.LINE_AA)
     return image
+
 
 def draw_boxes(image, all_boxes):
     for box in all_boxes:
@@ -87,6 +90,44 @@ def jump_to_prev_flagged():
             current_image_index = i
             return True
     return False
+    
+def delete_low_confidence_skeletons():
+    global keypoints, boxes
+    deleted_count = 0
+    for i in range(len(keypoints) - 1, -1, -1):
+        low_confidence_count = sum(1 for conf in keypoints[i][2::3] if conf < LOW_CONFIDENCE_THRESHOLD)
+        if low_confidence_count > 10:
+            del keypoints[i]
+            del boxes[i]
+            deleted_count += 1
+    print(f"Deleted {deleted_count} skeleton(s) with more than 10 low-confidence keypoints.")
+    save_action({"type": "delete_skeletons", "count": deleted_count})
+    save_annotations()
+
+def save_action(action):
+    global action_history
+    action_history.append(action)
+    if len(action_history) > MAX_HISTORY:
+        action_history.pop(0)
+
+def redo_action():
+    global action_history, keypoints, boxes
+    if not action_history:
+        print("No actions to redo.")
+        return
+    
+    action = action_history.pop()
+    if action["type"] == "delete_skeletons":
+        print(f"Cannot redo the deletion of {action['count']} skeleton(s).")
+    elif action["type"] == "move_keypoint":
+        keypoints[action["person"]][action["keypoint"]] = action["old_x"]
+        keypoints[action["person"]][action["keypoint"] + 1] = action["old_y"]
+        print(f"Undid keypoint move for person {action['person']}, keypoint {action['keypoint']//3}")
+    elif action["type"] == "move_box":
+        boxes[action["box"]] = action["old_box"]
+        print(f"Undid box move for box {action['box']}")
+    
+    save_annotations()
 
 def mouse_callback(event, x, y, flags, param):
     global selected_keypoint, selected_person, selected_box, selected_box_corner, keypoints, boxes
@@ -123,10 +164,19 @@ def mouse_callback(event, x, y, flags, param):
 
     elif event == cv2.EVENT_MOUSEMOVE:
         if selected_keypoint is not None and selected_person is not None:
+            old_x, old_y = keypoints[selected_person][selected_keypoint], keypoints[selected_person][selected_keypoint + 1]
             keypoints[selected_person][selected_keypoint] = x
             keypoints[selected_person][selected_keypoint + 1] = y
+            save_action({
+                "type": "move_keypoint",
+                "person": selected_person,
+                "keypoint": selected_keypoint,
+                "old_x": old_x,
+                "old_y": old_y
+            })
             save_annotations()
         elif selected_box is not None:
+            old_box = boxes[selected_box].copy()
             bx, by, bw, bh = boxes[selected_box]
             if selected_box_corner == "tl":
                 boxes[selected_box] = [x, y, bx + bw - x, by + bh - y]
@@ -138,6 +188,11 @@ def mouse_callback(event, x, y, flags, param):
                 boxes[selected_box] = [bx, by, x - bx, y - by]
             else:
                 boxes[selected_box] = [x - bw // 2, y - bh // 2, bw, bh]
+            save_action({
+                "type": "move_box",
+                "box": selected_box,
+                "old_box": old_box
+            })
             save_annotations()
 
     elif event == cv2.EVENT_LBUTTONUP:
@@ -201,7 +256,7 @@ def main():
 
     while current_image_index < len(images_list):
         image_name = images_list[current_image_index]
-        img_path = os.path.join(folder_path, image_name)
+        img_path = os.path.join(folder_path, 'front_RGB', image_name)
         img = cv2.imread(img_path)
 
         keypoints = img_dict[image_name]['keypoints']
@@ -252,6 +307,10 @@ def main():
                     break
                 else:
                     print("No more low confidence images before")
+            elif key == ord('d'):  # 'd' to delete low confidence skeletons
+                delete_low_confidence_skeletons()
+            elif key == ord('r'):  # 'r' to redo last action
+                redo_action()
 
     cv2.destroyAllWindows()
 
