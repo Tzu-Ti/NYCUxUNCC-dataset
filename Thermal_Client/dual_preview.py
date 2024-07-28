@@ -16,7 +16,7 @@ def get_parse():
 
     parser.add_argument('--preview', action='store_true')
     parser.add_argument('--save', action='store_true')
-    parser.add_argument('--folder_path', required='--save' in sys.argv)
+    parser.add_argument('--folder_path', required=True)
     args = parser.parse_args()
     return args
 
@@ -74,36 +74,37 @@ def main():
     
     cap = ColorCamera(config)
 
-    while True:
-        start = time.time()
+    with Lepton3() as leptonCap:
         
-        # get thermal
-        with Lepton3() as leptonCap:
-            thermal, _ = leptonCap.capture()
-        np_thermal, thermal = process_thermal(thermal)
-
-        # get RGB
-        rgb = cap.capture()
-        rgb = cap.process(rgb)
-        if args.preview:
-            thermal_rgb = cv2.applyColorMap( thermal, cv2.COLORMAP_HOT )
-            img1 = cv2.resize( thermal_rgb, (320, 240), interpolation=cv2.INTER_NEAREST)
-
-            img2 = cv2.resize(rgb, (320, 240))
-
-            horizontal = np.hstack((img1, img2))
-            cv2.imshow("dual_camera", horizontal)
-
-        if args.save:
-            filename = f"{time.time_ns()}"
-            filepath = os.path.join(args.folder_path, filename)
+        while True:
+            start = time.time()
             
-            save_rgb(filepath, rgb)
-            save_npy(filepath, np_thermal)
+            # get thermal
+            thermal, _ = leptonCap.capture()
+            np_thermal, thermal = process_thermal(thermal)
 
-        if cv2.waitKey( 1 ) & 0xFF == ord( "q" ):
-            break
-        print(f"\rfps:{1/(time.time()-start):.2f}", end = '')
+            # get RGB
+            rgb = cap.capture()
+            rgb = cap.process(rgb)
+            if args.preview:
+                thermal_rgb = cv2.applyColorMap( thermal, cv2.COLORMAP_HOT )
+                img1 = cv2.resize( thermal_rgb, (320, 240), interpolation=cv2.INTER_NEAREST)
+
+                img2 = cv2.resize(rgb, (320, 240))
+
+                horizontal = np.hstack((img1, img2))
+                cv2.imshow("dual_camera", horizontal)
+
+            if args.save:
+                filename = f"{time.time_ns()}"
+                filepath = os.path.join(args.folder_path, filename)
+                
+                save_rgb(filepath, rgb)
+                save_npy(filepath, np_thermal)
+
+            if cv2.waitKey( 1 ) & 0xFF == ord( "q" ):
+                break
+            print(f"\rfps:{1/(time.time()-start):.2f}", end = '')
 
 
 if __name__ == '__main__':
