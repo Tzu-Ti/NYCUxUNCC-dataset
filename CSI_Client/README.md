@@ -2,6 +2,12 @@
 
 Collect specified Wi-Fi CSI packets using the Wi-Fi 6 protocol through the package PicoScenes.
 
+## Setting Ethernet
+Set statics ip to be in a local network with server.
+- Client1: 192.168.5.3
+- Client2: 192.168.5.4
+- Client3: 192.168.5.5
+
 ## Prerequisite
 ### Download related package from [here](https://ps.zpj.io/)
 

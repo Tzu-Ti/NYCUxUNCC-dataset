@@ -5,6 +5,13 @@ Establish a data collection process, including collection times, collection time
 
 ![GUI](gui.jpg)
 
+## Setting Ethernet
+Set DHCP on router.
+- Router: 192.168.5.1
+
+Set statics ip on server
+- Server: 192.168.5.2
+
 ## Prerequisite
 ### Download related package
 ```shell!
