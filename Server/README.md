@@ -30,6 +30,7 @@ $ array_prepare_for_picoscenes 6 "6275 160 6345"
 $ python3 gui_function.py
 ```
 
+### After client connected
 1. set csi collection client to Rx
 2. set channel string, we choose `65 "6275_160_6345"`
 3. set collector name, which is data saving path
